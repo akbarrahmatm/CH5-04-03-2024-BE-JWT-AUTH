@@ -88,7 +88,7 @@ const createProduct = async (req, res, next) => {
 
 const findProducts = async (req, res, next) => {
   try {
-    const { productname, username, shop } = req.query;
+    const { productname, username, shop, page, limit } = req.query;
     const condition = {};
     if (productname) condition.name = { [Op.iLike]: `%${productname}%` };
 
@@ -98,15 +98,25 @@ const findProducts = async (req, res, next) => {
     const includeUserCondition = {};
     if (username) includeUserCondition.name = { [Op.iLike]: `${username}%` };
 
+    const pageNum = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 10;
+    const offset = parseInt(page) || 10;
+
     const products = await Product.findAll({
       include: [
         {
           model: Shop,
           where: includeShopCondition,
+          attributes: ["name"],
+        },
+        {
+          model: User,
+          attributes: ["name"],
         },
       ],
       where: condition,
       order: [["id", "ASC"]],
+      attributes: ["name", "price", "stock", "createdAt", "updatedAt"],
     });
 
     res.status(200).json({
@@ -127,6 +137,10 @@ const findProductById = async (req, res, next) => {
         id: req.params.id,
       },
     });
+
+    if (product.shopId !== req.user.shopId) {
+      return next(new ApiError("Kamu bukan pemilik produk", 400));
+    }
 
     res.status(200).json({
       status: "Success",
